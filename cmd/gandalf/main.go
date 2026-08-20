@@ -10,6 +10,9 @@ import (
 	"github.com/wellingtonlope/gandalf/internal/mellon"
 )
 
+// version is injected at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func main() {
 	if len(os.Args) > 1 {
 		arg := strings.ToLower(strings.TrimSpace(os.Args[1]))
@@ -22,7 +25,7 @@ func main() {
 			return
 		}
 		if arg == "version" || arg == "--version" || arg == "-v" {
-			fmt.Println("gandalf v0.1.0 - A wizard is never late, nor is he early. He generates the password precisely when he means to.")
+			fmt.Printf("gandalf %s - A wizard is never late, nor is he early. He generates the password precisely when he means to.\n", version)
 			return
 		}
 	}
