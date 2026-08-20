@@ -1,0 +1,7 @@
+bin/
+/gandalf
+*.exe
+.idea/
+.vscode/
+*.test
+coverage.out
