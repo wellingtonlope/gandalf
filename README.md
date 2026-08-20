@@ -40,16 +40,6 @@ gandalf --help
 | `-h, --help` | show help | |
 | `-v, --version` | show version | |
 
-## The Secret
-
-```bash
-gandalf mellon
-# or
-gandalf friend
-```
-
-Displays the inscription on the Doors of Durin.
-
 ## Development
 
 ```bash
