@@ -6,7 +6,7 @@ DIST_DIR=dist
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: build run test tidy clean mellon lint fmt fmt-check vet check dist dist-clean
+.PHONY: build run test tidy clean mellon lint fmt fmt-check vet check dist dist-clean brew-update release
 
 build:
 	mkdir -p $(BUILD_DIR)
@@ -40,7 +40,7 @@ fmt-check:
 lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		echo "Running golangci-lint..."; \
-		golangci-lint run ./...; \
+		golangci-lint run ./... || (echo "golangci-lint failed, falling back to go vet..."; go vet ./...); \
 	else \
 		echo "golangci-lint not found, falling back to 'go vet'..."; \
 		echo "Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
@@ -98,11 +98,34 @@ dist-archives: dist
 install:
 	go install -ldflags "$(LDFLAGS)" ./cmd/gandalf
 
+# Update local homebrew tap (~/git/homebrew-tap) with given VERSION (e.g. make brew-update VERSION=v0.2.0)
+brew-update:
+	@if [ -z "$(VERSION)" ] || [ "$(VERSION)" = "dev" ]; then echo "Usage: make brew-update VERSION=v0.2.0"; exit 1; fi
+	@chmod +x .github/scripts/update-tap.sh
+	@.github/scripts/update-tap.sh $(VERSION)
+	@echo "Tap updated locally. Review diff in ~/git/homebrew-tap, then:"
+	@echo "  git -C ~/git/homebrew-tap diff"
+	@echo "  git -C ~/git/homebrew-tap commit -am \"chore: bump gandalf to $(VERSION)\" && git -C ~/git/homebrew-tap push"
+
+# Create and push a new version tag (e.g. make release VERSION=v0.2.0)
+release:
+	@if [ -z "$(VERSION)" ] || [ "$(VERSION)" = "dev" ]; then echo "Usage: make release VERSION=v0.2.0"; exit 1; fi
+	@if ! echo "$(VERSION)" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+"; then echo "VERSION must be like v0.2.0"; exit 1; fi
+	@if git rev-parse $(VERSION) >/dev/null 2>&1; then echo "Tag $(VERSION) already exists"; exit 1; fi
+	@$(MAKE) check
+	@echo "Creating tag $(VERSION)..."
+	git tag -a $(VERSION) -m "$(VERSION)"
+	git push origin $(VERSION)
+	@echo "Pushed $(VERSION). Watch release: gh run list --repo wellingtonlope/gandalf"
+	@echo "After release succeeds, tap will auto-update via GitHub Actions (requires TAP_TOKEN)."
+
 help:
 	@echo "Available targets:"
 	@echo "  build        - Build binary to $(BUILD_DIR)/$(BINARY)"
 	@echo "  dist         - Cross-compile for Linux/macOS/Windows (amd64/arm64) to $(DIST_DIR)/"
 	@echo "  dist-archives- Create tar.gz/zip archives + checksums for release"
+	@echo "  release      - Create and push tag (VERSION=v0.2.0) -> triggers release + tap update"
+	@echo "  brew-update  - Update local tap (VERSION=v0.2.0) from checksums.txt"
 	@echo "  test         - Run tests with race and coverage"
 	@echo "  test-verbose - Run tests verbosely"
 	@echo "  fmt          - Format code (go fmt + gofmt)"

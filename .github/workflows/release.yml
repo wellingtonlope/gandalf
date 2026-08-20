@@ -43,3 +43,53 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-tap:
+    needs: build
+    runs-on: ubuntu-latest
+    # Attempt tap update even if TAP_TOKEN missing, but don't fail the whole workflow
+    continue-on-error: true
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gandalf
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download checksums from release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Wait a bit for release assets to be available
+          sleep 5
+          gh release download "${{ github.ref_name }}" --repo wellingtonlope/gandalf --pattern "checksums.txt" --dir /tmp --clobber
+          cat /tmp/checksums.txt
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: wellingtonlope/homebrew-tap
+          token: ${{ secrets.TAP_TOKEN }}
+          path: tap
+          fetch-depth: 0
+
+      - name: Update tap formula
+        run: |
+          chmod +x .github/scripts/update-tap.sh
+          ./.github/scripts/update-tap.sh "${{ github.ref_name }}" tap/Formula/gandalf.rb /tmp/checksums.txt
+
+      - name: Commit and push tap
+        run: |
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet Formula/gandalf.rb; then
+            echo "No changes to Formula/gandalf.rb"
+            exit 0
+          fi
+          git add Formula/gandalf.rb
+          git commit -m "chore: bump gandalf to ${{ github.ref_name }}"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAP_TOKEN }}
