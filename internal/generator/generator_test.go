@@ -286,3 +286,93 @@ func TestGenerate_Randomness(t *testing.T) {
 	}
 	assert.NotEqual(t, p1, p2, "two consecutive passwords should not be identical (flaky if equal)")
 }
+
+func TestGenerate_GuaranteesCharset(t *testing.T) {
+	// This test proves the current algorithm is repetitive: without guarantee,
+	// passwords with all charsets enabled often miss digits/symbols, especially
+	// with short lengths. After the fix, every password must contain at least
+	// one char from each enabled set (and be shuffled).
+	tests := map[string]struct {
+		opts       Options
+		iterations int
+	}{
+		"length 4 all sets - minimal": {
+			opts:       Options{Length: 4, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+			iterations: 20,
+		},
+		"length 8 all sets": {
+			opts:       Options{Length: 8, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+			iterations: 50,
+		},
+		"length 12 all sets": {
+			opts:       Options{Length: 12, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+			iterations: 30,
+		},
+		"length 10 lower and digits": {
+			opts:       Options{Length: 10, UseLower: true, UseDigits: true},
+			iterations: 30,
+		},
+		"length 10 lower, upper, digits": {
+			opts:       Options{Length: 10, UseLower: true, UseUpper: true, UseDigits: true},
+			iterations: 30,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			for i := 0; i < tt.iterations; i++ {
+				pwd, err := Generate(tt.opts)
+				require.NoError(t, err, "iteration %d", i)
+				if tt.opts.UseLower {
+					assert.True(t, strings.ContainsAny(pwd, LowerLetters), "should contain lower, pwd %q iter %d", pwd, i)
+				}
+				if tt.opts.UseUpper {
+					assert.True(t, strings.ContainsAny(pwd, UpperLetters), "should contain upper, pwd %q iter %d", pwd, i)
+				}
+				if tt.opts.UseDigits {
+					assert.True(t, strings.ContainsAny(pwd, Digits), "should contain digit, pwd %q iter %d - repetitive numbers issue", pwd, i)
+				}
+				if tt.opts.UseSymbols {
+					assert.True(t, strings.ContainsAny(pwd, Symbols), "should contain symbol, pwd %q iter %d", pwd, i)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerate_ValidateRequiresLengthForCharsets(t *testing.T) {
+	tests := map[string]struct {
+		opts    Options
+		wantErr string
+	}{
+		"length 2 with 4 sets should fail": {
+			opts:    Options{Length: 2, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+			wantErr: "length must be at least 4 to include all selected character sets",
+		},
+		"length 3 with 4 sets should fail": {
+			opts:    Options{Length: 3, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+			wantErr: "length must be at least 4 to include all selected character sets",
+		},
+		"length 4 with 4 sets should pass": {
+			opts: Options{Length: 4, UseLower: true, UseUpper: true, UseDigits: true, UseSymbols: true},
+		},
+		"length 2 with 2 sets should pass": {
+			opts: Options{Length: 2, UseLower: true, UseDigits: true},
+		},
+		"length 1 with 2 sets should fail": {
+			opts:    Options{Length: 1, UseLower: true, UseDigits: true},
+			wantErr: "length must be at least 2 to include all selected character sets",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := tt.opts.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tt.wantErr)
+			}
+		})
+	}
+}
