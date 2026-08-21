@@ -63,6 +63,27 @@ Ranks: `Hobbit (0-27)` < `Orc (28-35)` < `Ranger (36-59)` < `Elf (60-79)` < `Dwa
 
 Each check shows entropy, charset, crack time, warnings (common words, Middle-earth terms, sequences, repeats) and advice.
 
+### Shell Completion (zsh)
+
+Generate zsh completion for subcommands only (`check`, `completion`, `mellon`, `friend`, `help`, `version`):
+
+```bash
+# 1. Generate and install
+mkdir -p ~/.zsh/completions
+gandalf completion zsh > ~/.zsh/completions/_gandalf
+
+# 2. Enable in ~/.zshrc (if not already)
+# fpath=(~/.zsh/completions $fpath)
+# autoload -Uz compinit && compinit
+
+# 3. Restart shell
+exec zsh
+
+# Test
+gandalf <TAB>          # shows subcommands
+gandalf completion <TAB>  # shows: zsh
+```
+
 ### Options
 
 | Flag | Description | Default |

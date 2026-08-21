@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/wellingtonlope/gandalf/internal/clipboard"
+	"github.com/wellingtonlope/gandalf/internal/completion"
 	"github.com/wellingtonlope/gandalf/internal/generator"
 	"github.com/wellingtonlope/gandalf/internal/lore"
 	"github.com/wellingtonlope/gandalf/internal/mellon"
@@ -37,6 +38,9 @@ func run(args []string, stdout, stderr io.Writer, copyFn func(string) error) int
 		}
 		if arg == "check" {
 			return handleCheck(args[1:], stdout, stderr)
+		}
+		if arg == "completion" {
+			return handleCompletion(args[1:], stdout, stderr)
 		}
 		if arg == "help" || arg == "--help" || arg == "-h" {
 			printUsage(stdout)
@@ -173,6 +177,68 @@ func handleCheck(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func handleCompletion(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("completion", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	var showHelp bool
+	fs.BoolVar(&showHelp, "help", false, "show help")
+	fs.BoolVar(&showHelp, "h", false, "show help (shorthand)")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	if showHelp {
+		printCompletionUsage(stdout)
+		return 0
+	}
+
+	if fs.NArg() == 0 {
+		fmt.Fprintln(stderr, "Error: shell required")
+		fmt.Fprintln(stderr, "Usage: gandalf completion [zsh]")
+		printCompletionUsage(stderr)
+		return 1
+	}
+
+	shell := strings.ToLower(strings.TrimSpace(fs.Arg(0)))
+	if shell == "zsh" {
+		fmt.Fprint(stdout, completion.ZshScript())
+		return 0
+	}
+
+	fmt.Fprintf(stderr, "Error: unsupported shell %q\n", shell)
+	fmt.Fprintln(stderr, "Supported shells: zsh")
+	printCompletionUsage(stderr)
+	return 1
+}
+
+func printCompletionUsage(w io.Writer) {
+	fmt.Fprintln(w, `gandalf completion - Generate shell completion script
+
+Usage:
+  gandalf completion [shell]      generate completion script
+  gandalf completion zsh           zsh completion (subcommands only)
+
+Supported shells:
+  zsh
+
+Examples:
+  # zsh - recommended for this project
+  mkdir -p ~/.zsh/completions
+  gandalf completion zsh > ~/.zsh/completions/_gandalf
+  # Add to ~/.zshrc if needed:
+  #   fpath=(~/.zsh/completions $fpath)
+  #   autoload -Uz compinit && compinit
+  # Restart shell
+
+  # Test without installing:
+  #   gandalf completion zsh > /tmp/_gandalf && source /tmp/_gandalf
+
+Notes:
+  - Only subcommands are completed (check, completion, mellon, friend, help, version) as requested.
+  - Flags are not completed to keep it simple.`)
+}
+
 func rankEmoji(name string) string {
 	switch name {
 	case "Hobbit":
@@ -225,6 +291,7 @@ func printUsage(w io.Writer) {
 Usage:
   gandalf [options]               generate a password
   gandalf check <password>       evaluate password strength (Middle-earth ranks)
+  gandalf completion zsh         generate zsh completion (subcommands only)
   gandalf mellon                 ✨ elven secret
   gandalf friend                 ✨ translation also works
 
@@ -248,6 +315,7 @@ Examples:
   gandalf --copy -l 16            # copy to clipboard
   gandalf check "myPassword123"    # evaluate strength (Hobbit->Sauron)
   echo "secret" | gandalf check    # via stdin
+  gandalf completion zsh > ~/.zsh/completions/_gandalf  # zsh completion
   gandalf mellon                  # 👀
 
 "A wizard is never late, nor is he early. He generates the password precisely when he means to."`)

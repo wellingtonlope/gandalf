@@ -501,6 +501,90 @@ type errorReader struct {
 	err error
 }
 
+func TestRun_Completion(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantCode   int
+		wantStdout string
+		wantStderr string
+	}{
+		{name: "zsh success", args: []string{"completion", "zsh"}, wantCode: 0, wantStdout: "#compdef gandalf"},
+		{name: "zsh case insensitive ZSH", args: []string{"completion", "ZSH"}, wantCode: 0, wantStdout: "#compdef gandalf"},
+		{name: "zsh case mixed Zsh", args: []string{"completion", "Zsh"}, wantCode: 0, wantStdout: "#compdef gandalf"},
+		{name: "completion with extra spaces", args: []string{"completion", "  zsh  "}, wantCode: 0, wantStdout: "_gandalf"},
+		{name: "missing shell arg", args: []string{"completion"}, wantCode: 1, wantStderr: "shell required"},
+		{name: "unsupported bash", args: []string{"completion", "bash"}, wantCode: 1, wantStderr: "unsupported shell"},
+		{name: "unsupported fish", args: []string{"completion", "fish"}, wantCode: 1, wantStderr: "unsupported shell"},
+		{name: "unsupported empty string", args: []string{"completion", ""}, wantCode: 1, wantStderr: "unsupported shell"},
+		{name: "unknown flag", args: []string{"completion", "--unknown"}, wantCode: 1, wantStderr: "flag provided but not defined"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(tt.args, &stdout, &stderr, nil)
+			assert.Equal(t, tt.wantCode, code)
+			if tt.wantStdout != "" {
+				assert.Contains(t, stdout.String(), tt.wantStdout)
+				// For success, ensure contains all subcommands.
+				if tt.wantCode == 0 {
+					assert.Contains(t, stdout.String(), "'check:")
+					assert.Contains(t, stdout.String(), "'mellon:")
+					assert.Contains(t, stdout.String(), "'friend:")
+					assert.Contains(t, stdout.String(), "'help:")
+					assert.Contains(t, stdout.String(), "'version:")
+					assert.Contains(t, stdout.String(), "_describe")
+					assert.Empty(t, stderr.String())
+				}
+			}
+			if tt.wantStderr != "" {
+				assert.Contains(t, stderr.String(), tt.wantStderr)
+			}
+		})
+	}
+}
+
+func TestRun_Completion_Help(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "help long", args: []string{"completion", "--help"}},
+		{name: "help short", args: []string{"completion", "-h"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := run(tt.args, &stdout, &stderr, nil)
+			assert.Equal(t, 0, code)
+			out := stdout.String()
+			assert.Contains(t, out, "gandalf completion")
+			assert.Contains(t, out, "zsh")
+			assert.Contains(t, out, "Usage:")
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
+func TestPrintCompletionUsage(t *testing.T) {
+	var buf bytes.Buffer
+	printCompletionUsage(&buf)
+	out := buf.String()
+	assert.Contains(t, out, "gandalf completion")
+	assert.Contains(t, out, "zsh")
+	assert.Contains(t, out, "Usage:")
+	assert.Contains(t, out, "completions/_gandalf")
+}
+
+func TestPrintUsage_ContainsCompletion(t *testing.T) {
+	var buf bytes.Buffer
+	printUsage(&buf)
+	assert.Contains(t, buf.String(), "gandalf completion")
+	assert.Contains(t, buf.String(), "zsh")
+}
+
 func (e errorReader) Read(p []byte) (int, error) {
 	return 0, e.err
 }

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.3.0...HEAD)
+### Added
+- `completion`: new subcommand `gandalf completion zsh` generating zsh completion for subcommands only (`check`, `completion`, `mellon`, `friend`, `help`, `version`) (`cmd/gandalf/main.go:43`, `internal/completion/completion.go:1`).
+- `docs`: document zsh completion install (`README.md:66`).
+
+### Tests
+- `completion`: add table-driven tests for zsh script (subcommands, no flags) and supported shells (`internal/completion/completion_test.go:1`).
+- `cmd/gandalf`: add completion tests — zsh success, case-insensitive, missing/unsupported shell, help, unknown flag (`cmd/gandalf/main_test.go:500`).
 
 ## [0.3.0](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...v0.3.0) - 2026-08-21
 ### Added
