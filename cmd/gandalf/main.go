@@ -9,11 +9,15 @@ import (
 
 	"github.com/wellingtonlope/gandalf/internal/clipboard"
 	"github.com/wellingtonlope/gandalf/internal/generator"
+	"github.com/wellingtonlope/gandalf/internal/lore"
 	"github.com/wellingtonlope/gandalf/internal/mellon"
 )
 
 // version is injected at build time via -ldflags "-X main.version=..."
 var version = "dev"
+
+// inputReader is the source for reading passwords in check mode, overrideable in tests.
+var inputReader io.Reader = os.Stdin
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, clipboard.Copy))
@@ -30,6 +34,9 @@ func run(args []string, stdout, stderr io.Writer, copyFn func(string) error) int
 		if mellon.IsMellon(arg) {
 			mellon.Reveal()
 			return 0
+		}
+		if arg == "check" {
+			return handleCheck(args[1:], stdout, stderr)
 		}
 		if arg == "help" || arg == "--help" || arg == "-h" {
 			printUsage(stdout)
@@ -110,11 +117,114 @@ func run(args []string, stdout, stderr io.Writer, copyFn func(string) error) int
 	return 0
 }
 
+func handleCheck(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("check", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	var showHelp bool
+	fs.BoolVar(&showHelp, "help", false, "show help")
+	fs.BoolVar(&showHelp, "h", false, "show help (shorthand)")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	if showHelp {
+		printCheckUsage(stdout)
+		return 0
+	}
+
+	var password string
+	if fs.NArg() > 0 {
+		if fs.NArg() > 1 {
+			password = strings.Join(fs.Args(), " ")
+		} else {
+			password = fs.Arg(0)
+		}
+	} else {
+		data, err := io.ReadAll(inputReader)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: failed to read password: %v\n", err)
+			return 1
+		}
+		password = strings.TrimSpace(string(data))
+		if password == "" {
+			fmt.Fprintln(stderr, "Error: no password provided")
+			fmt.Fprintln(stderr, "Usage: gandalf check <password> or echo <password> | gandalf check")
+			printCheckUsage(stderr)
+			return 1
+		}
+	}
+
+	res := lore.Evaluate(password)
+
+	emoji := rankEmoji(res.Rank.Name)
+	fmt.Fprintf(stdout, "%s %s (%s) - %.1f bits\n", emoji, res.Rank.Title, res.Rank.Name, res.Entropy)
+	fmt.Fprintf(stdout, "   \"%s\"\n", res.Rank.Quote)
+	fmt.Fprintf(stdout, "   Charset: %s (%d) | Length: %d | Crack: %s\n", res.CharsetDesc, res.CharsetSize, len(res.Password), res.CrackTime)
+	if len(res.Warnings) > 0 {
+		fmt.Fprintln(stdout, "   Warnings:")
+		for _, w := range res.Warnings {
+			fmt.Fprintf(stdout, "     ⚠️  %s\n", w)
+		}
+	} else {
+		fmt.Fprintln(stdout, "   Warnings: none - well forged!")
+	}
+	fmt.Fprintf(stdout, "   Advice: %s\n", res.Rank.Advice)
+	return 0
+}
+
+func rankEmoji(name string) string {
+	switch name {
+	case "Hobbit":
+		return "🔴"
+	case "Orc":
+		return "🟠"
+	case "Ranger":
+		return "🟡"
+	case "Elf":
+		return "🟢"
+	case "Dwarf":
+		return "🔵"
+	case "Wizard":
+		return "🟣"
+	case "Sauron":
+		return "✨"
+	default:
+		return "•"
+	}
+}
+
+func printCheckUsage(w io.Writer) {
+	fmt.Fprintln(w, `gandalf check - Evaluate password strength with Middle-earth lore 🧙‍♂️
+
+Usage:
+  gandalf check <password>         check strength of a password
+  echo <password> | gandalf check  read from stdin
+  gandalf check --help             show this help
+
+Ranks (weakest -> strongest):
+  Hobbit (0-27 bits)    - Like butter scraped over too much bread
+  Orc (28-35 bits)      - Weak as an Orc in sunlight
+  Ranger (36-59 bits)   - A Ranger wouldn't trust the road
+  Elf (60-79 bits)      - Keen as Elven sight
+  Dwarf (80-99 bits)    - Hard as the Doors of Durin
+  Wizard (100-127 bits) - You shall not pass!
+  Sauron (128+ bits)    - One password to rule them all
+
+Examples:
+  gandalf check "password123"
+  gandalf check "xK9\$m2PqL8@vB4!"
+  echo "mySecret123" | gandalf check
+
+Advice: pipe passwords securely, avoid shell history: echo -n "pass" | gandalf check`)
+}
+
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, `gandalf - Magical password generator 🧙‍♂️
 
 Usage:
   gandalf [options]               generate a password
+  gandalf check <password>       evaluate password strength (Middle-earth ranks)
   gandalf mellon                 ✨ elven secret
   gandalf friend                 ✨ translation also works
 
@@ -136,6 +246,8 @@ Examples:
   gandalf -c 5 -l 12              # 5 passwords of 12 chars
   gandalf -x -l 16                # copy to clipboard (shorthand)
   gandalf --copy -l 16            # copy to clipboard
+  gandalf check "myPassword123"    # evaluate strength (Hobbit->Sauron)
+  echo "secret" | gandalf check    # via stdin
   gandalf mellon                  # 👀
 
 "A wizard is never late, nor is he early. He generates the password precisely when he means to."`)

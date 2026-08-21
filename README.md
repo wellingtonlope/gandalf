@@ -48,6 +48,21 @@ gandalf -c 5 -l 12       # 5 passwords
 gandalf --help
 ```
 
+### Check Password Strength (Middle-earth Ranks)
+
+Evaluate any password with thematic lore ranks from Hobbit (weak) to Sauron (legendary):
+
+```bash
+gandalf check "password123"          # 🔴 Hobbit - weak
+gandalf check "xK9$m2PqL8@vB4!"      # 🔵 Dwarf - strong
+echo "mySecret" | gandalf check      # via stdin (avoids shell history)
+gandalf check --help                 # show all ranks
+```
+
+Ranks: `Hobbit (0-27)` < `Orc (28-35)` < `Ranger (36-59)` < `Elf (60-79)` < `Dwarf (80-99)` < `Wizard (100-127)` < `Sauron (128+)`
+
+Each check shows entropy, charset, crack time, warnings (common words, Middle-earth terms, sequences, repeats) and advice.
+
 ### Options
 
 | Flag | Description | Default |

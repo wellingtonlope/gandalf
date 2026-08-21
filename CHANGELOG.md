@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...HEAD)
+### Added
+- `lore`: new package `internal/lore/lore.go:1` with Middle-earth themed strength ranks `Hobbit (0-27)` < `Orc (28-35)` < `Ranger (36-59)` < `Elf (60-79)` < `Dwarf (80-99)` < `Wizard (100-127)` < `Sauron (128+)`, entropy `len*log2(charset)`, thematic penalties (common passwords, Middle-earth words, sequential, repeating) and crack time at 10B guesses/sec (`internal/lore/lore.go:120`, `internal/lore/lore.go:220`).
+- `check`: new subcommand `gandalf check <password>` and `echo <password> | gandalf check` with stdin support, `gandalf check --help` and Middle-earth themed output (emoji, quote, advice) (`cmd/gandalf/main.go:40`, `cmd/gandalf/main.go:122`, `cmd/gandalf/main.go:239`).
+- `docs`: document `gandalf check` with ranks and examples (`README.md:51`).
+
 ### Changed
 - `generator`: expose `randReader` and `randInt` for testability to simulate `crypto/rand` failures (`internal/generator/generator.go:13`, `internal/generator/generator.go:17`).
 - `docs`: require `CHANGELOG.md` update on every commit under `[Unreleased]` via `AGENTS.md:85` (`AGENTS.md:10`, `AGENTS.md:114`).
@@ -19,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `cmd/gandalf`: add missing CLI edge cases — flag parse errors (`-l abc`, `--unknown`), `count` validation (`-c 0`), `length < requiredCount` (`-l 2` with 4 sets), hint verification (`Hint: try 'gandalf --help'`), and `--no-*` filtering verification with 20 iterations (`cmd/gandalf/main_test.go:63`, `cmd/gandalf/main_test.go:124`).
 - `cmd/gandalf`: expand `mellon` tests for `TrimSpace`/`ToLower` (`"  mellon  "`, `" FrIeNd "`) and negative case `"amigo"` not triggering, plus `t.Cleanup` capture helper (`cmd/gandalf/main_test.go:186`, `cmd/gandalf/main_test.go:287`).
 - `cmd/gandalf`: dedup duplicate `copy with error` case and convert all `map` tables to slices (`cmd/gandalf/main_test.go:15`, `cmd/gandalf/main_test.go:132`).
+- `lore`: add comprehensive table-driven tests for ranks, entropy, warnings and penalties (`95.8%` coverage) (`internal/lore/lore_test.go:1`).
+- `cmd/gandalf`: add `check` subcommand tests — human output for all ranks, stdin handling, errors, help, multiple args and emoji (`cmd/gandalf/main_test.go:271`).
 
 ## [0.2.2](https://github.com/wellingtonlope/gandalf/releases/tag/v0.2.2) - 2026-08-21
 ### Fixed

@@ -267,6 +267,244 @@ func TestPrintUsage_ContainsCopy(t *testing.T) {
 	assert.Contains(t, buf.String(), "gandalf - Magical")
 }
 
+func TestRun_Check(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantRank   string
+		wantSubstr string
+		wantCode   int
+	}{
+		{name: "hobbit weak password", args: []string{"check", "password"}, wantRank: "Hobbit", wantSubstr: "Hobbit of the Shire", wantCode: 0},
+		{name: "hobbit short", args: []string{"check", "abc"}, wantRank: "Hobbit", wantSubstr: "Hobbit", wantCode: 0},
+		{name: "orc weak", args: []string{"check", "abc123"}, wantRank: "Hobbit", wantSubstr: "Hobbit", wantCode: 0}, // penalized to Hobbit
+		{name: "elf strong 12 mixed", args: []string{"check", "xK9$m2PqL8@v"}, wantRank: "Elf", wantSubstr: "Elf of Rivendell", wantCode: 0},
+		{name: "dwarf 15 mixed", args: []string{"check", "xK9$m2PqL8@vB4!"}, wantRank: "Dwarf", wantSubstr: "Dwarf Lord", wantCode: 0},
+		{name: "wizard 16 mixed strong", args: []string{"check", "xK9$m2PqL8@vB4!xK"}, wantRank: "Wizard", wantSubstr: "Gandalf the White", wantCode: 0},
+		{name: "sauron 20 strong", args: []string{"check", "xK9$m2PqL8@vB4!xK9$m2PqL8@vB4!"}, wantRank: "Sauron", wantSubstr: "One Ring", wantCode: 0},
+		{name: "mellon lore triggers warning but rank", args: []string{"check", "mellon"}, wantRank: "Hobbit", wantSubstr: "Middle-earth", wantCode: 0},
+		{name: "gandalf lore word", args: []string{"check", "GandalfTheWhite123"}, wantRank: "Ranger", wantSubstr: "Middle-earth", wantCode: 0},
+		{name: "sequential warning", args: []string{"check", "abc123ABC"}, wantRank: "Hobbit", wantSubstr: "sequential", wantCode: 0},
+		{name: "repeating warning", args: []string{"check", "aaaBBB111"}, wantRank: "Ranger", wantSubstr: "repeating", wantCode: 0},
+		{name: "common password warning", args: []string{"check", "qwerty"}, wantRank: "Hobbit", wantSubstr: "common password", wantCode: 0},
+		{name: "only lower charset warning", args: []string{"check", "abcdefgh"}, wantRank: "Hobbit", wantSubstr: "only one character type", wantCode: 0},
+		{name: "empty string via arg still Hobbit", args: []string{"check", ""}, wantRank: "Hobbit", wantSubstr: "Hobbit", wantCode: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			// Ensure stdin not used for arg case; set to empty.
+			orig := inputReader
+			inputReader = strings.NewReader("")
+			t.Cleanup(func() { inputReader = orig })
+
+			code := run(tt.args, &stdout, &stderr, nil)
+			assert.Equal(t, tt.wantCode, code)
+			out := stdout.String()
+			assert.Contains(t, out, tt.wantSubstr)
+			assert.Contains(t, out, tt.wantRank)
+			// Human output always contains bits, Charset, Crack, Advice
+			assert.Contains(t, out, "bits")
+			assert.Contains(t, out, "Charset:")
+			assert.Contains(t, out, "Crack:")
+			assert.Contains(t, out, "Advice:")
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
+func TestRun_Check_Stdin(t *testing.T) {
+	tests := []struct {
+		name     string
+		stdin    string
+		wantRank string
+		wantCode int
+	}{
+		{name: "stdin hobbit", stdin: "password", wantRank: "Hobbit", wantCode: 0},
+		{name: "stdin strong dwarf", stdin: "xK9$m2PqL8@vB4!", wantRank: "Dwarf", wantCode: 0},
+		{name: "stdin with newline trimmed", stdin: "password\n", wantRank: "Hobbit", wantCode: 0},
+		{name: "stdin with spaces trimmed", stdin: "  password  \n", wantRank: "Hobbit", wantCode: 0},
+		{name: "stdin mellon lore", stdin: "mellon", wantRank: "Hobbit", wantCode: 0},
+		{name: "stdin with spaces in password - joined not trimmed internal", stdin: "my pass 123", wantRank: "Ranger", wantCode: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			orig := inputReader
+			inputReader = strings.NewReader(tt.stdin)
+			t.Cleanup(func() { inputReader = orig })
+
+			var stdout, stderr bytes.Buffer
+			code := run([]string{"check"}, &stdout, &stderr, nil)
+			assert.Equal(t, tt.wantCode, code)
+			assert.Contains(t, stdout.String(), tt.wantRank)
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
+func TestRun_Check_Errors(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		stdin    string
+		wantCode int
+		wantErr  string
+	}{
+		{name: "no password and empty stdin", args: []string{"check"}, stdin: "", wantCode: 1, wantErr: "no password provided"},
+		{name: "empty stdin whitespace only", args: []string{"check"}, stdin: "   \n", wantCode: 1, wantErr: "no password provided"},
+		{name: "unknown flag", args: []string{"check", "--unknown"}, stdin: "", wantCode: 1, wantErr: "flag provided but not defined"},
+		{name: "unknown flag short", args: []string{"check", "-x"}, stdin: "", wantCode: 1, wantErr: "flag provided but not defined"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			orig := inputReader
+			inputReader = strings.NewReader(tt.stdin)
+			t.Cleanup(func() { inputReader = orig })
+
+			var stdout, stderr bytes.Buffer
+			code := run(tt.args, &stdout, &stderr, nil)
+			assert.Equal(t, tt.wantCode, code)
+			assert.Contains(t, stderr.String(), tt.wantErr)
+			if tt.wantErr == "no password provided" {
+				assert.Contains(t, stderr.String(), "Usage: gandalf check")
+			}
+		})
+	}
+}
+
+func TestRun_Check_Help(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "check help long", args: []string{"check", "--help"}},
+		{name: "check help short", args: []string{"check", "-h"}},
+		{name: "check help via h flag", args: []string{"check", "--help", "ignored"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			orig := inputReader
+			inputReader = strings.NewReader("")
+			t.Cleanup(func() { inputReader = orig })
+
+			code := run(tt.args, &stdout, &stderr, nil)
+			assert.Equal(t, 0, code)
+			out := stdout.String()
+			assert.Contains(t, out, "gandalf check")
+			assert.Contains(t, out, "Hobbit")
+			assert.Contains(t, out, "Sauron")
+			assert.Contains(t, out, "Usage:")
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
+func TestRun_Check_MultipleArgsJoined(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	orig := inputReader
+	inputReader = strings.NewReader("")
+	t.Cleanup(func() { inputReader = orig })
+
+	// Multiple args should be joined with space.
+	code := run([]string{"check", "hello", "world"}, &stdout, &stderr, nil)
+	require.Equal(t, 0, code)
+	// The password "hello world" contains space => triggers symbol charset (Elf rank due to 11 chars lower+symbols).
+	assert.Contains(t, stdout.String(), "Elf")
+	// Ensure not error.
+	assert.Empty(t, stderr.String())
+	// Verify space handling produces symbols charset.
+	assert.Contains(t, stdout.String(), "symbols")
+
+	// Also check that joining works with three args.
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"check", "a", "b", "c"}, &stdout, &stderr, nil)
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout.String(), "Hobbit")
+	assert.Empty(t, stderr.String())
+}
+
+func TestRun_Check_SpacePassword(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	orig := inputReader
+	inputReader = strings.NewReader("")
+	t.Cleanup(func() { inputReader = orig })
+
+	code := run([]string{"check", "my password with spaces"}, &stdout, &stderr, nil)
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout.String(), "Charset:")
+	// Space triggers symbols charset.
+	assert.Contains(t, stdout.String(), "symbols")
+}
+
+func TestPrintCheckUsage(t *testing.T) {
+	var buf bytes.Buffer
+	printCheckUsage(&buf)
+	out := buf.String()
+	assert.Contains(t, out, "gandalf check")
+	assert.Contains(t, out, "Hobbit")
+	assert.Contains(t, out, "Sauron")
+	assert.Contains(t, out, "echo")
+	assert.Contains(t, out, "Ranks")
+}
+
+func TestPrintUsage_ContainsCheck(t *testing.T) {
+	var buf bytes.Buffer
+	printUsage(&buf)
+	assert.Contains(t, buf.String(), "gandalf check")
+	assert.Contains(t, buf.String(), "Middle-earth")
+}
+
+func TestRankEmoji(t *testing.T) {
+	tests := []struct {
+		name string
+		rank string
+		want string
+	}{
+		{name: "Hobbit", rank: "Hobbit", want: "🔴"},
+		{name: "Orc", rank: "Orc", want: "🟠"},
+		{name: "Ranger", rank: "Ranger", want: "🟡"},
+		{name: "Elf", rank: "Elf", want: "🟢"},
+		{name: "Dwarf", rank: "Dwarf", want: "🔵"},
+		{name: "Wizard", rank: "Wizard", want: "🟣"},
+		{name: "Sauron", rank: "Sauron", want: "✨"},
+		{name: "unknown", rank: "Unknown", want: "•"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, rankEmoji(tt.rank))
+		})
+	}
+}
+
+func TestRun_Check_StdinReadError(t *testing.T) {
+	orig := inputReader
+	t.Cleanup(func() { inputReader = orig })
+
+	// Simulate read error.
+	inputReader = errorReader{err: errors.New("read failure")}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"check"}, &stdout, &stderr, nil)
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stderr.String(), "failed to read password")
+	assert.Contains(t, stderr.String(), "read failure")
+}
+
+// errorReader simulates a failing Reader for check stdin.
+type errorReader struct {
+	err error
+}
+
+func (e errorReader) Read(p []byte) (int, error) {
+	return 0, e.err
+}
+
 // captureRunWithMellon captures os.Stdout during run and returns both
 // the os.Stdout capture and the stdout buffer passed to run.
 type runCapture struct {
