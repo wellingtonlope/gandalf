@@ -58,8 +58,8 @@ func run(args []string, stdout, stderr io.Writer, copyFn func(string) error) int
 	fs.IntVar(&count, "c", 1, "number of passwords (shorthand)")
 	fs.BoolVar(&showHelp, "help", false, "show help")
 	fs.BoolVar(&showHelp, "h", false, "show help (shorthand)")
-	fs.BoolVar(&copyToClipboard, "copy", false, "copy first password to clipboard")
-	fs.BoolVar(&copyToClipboard, "x", false, "copy first password to clipboard (shorthand)")
+	fs.BoolVar(&copyToClipboard, "copy", false, "copy passwords to clipboard (one per line)")
+	fs.BoolVar(&copyToClipboard, "x", false, "copy passwords to clipboard (shorthand, one per line)")
 
 	noUpper := fs.Bool("no-upper", false, "exclude uppercase letters")
 	noLower := fs.Bool("no-lower", false, "exclude lowercase letters")
@@ -96,7 +96,8 @@ func run(args []string, stdout, stderr io.Writer, copyFn func(string) error) int
 	}
 
 	if copyToClipboard && len(passwords) > 0 && copyFn != nil {
-		if err := copyFn(passwords[0]); err != nil {
+		text := strings.Join(passwords, "\n")
+		if err := copyFn(text); err != nil {
 			fmt.Fprintf(stderr, "Warning: could not copy to clipboard: %v\n", err)
 		} else {
 			fmt.Fprintln(stderr, "Copied to clipboard")
@@ -124,7 +125,7 @@ Options:
       --no-lower       exclude lowercase letters
       --no-digits      exclude digits
       --no-symbols     exclude symbols
-  -x, --copy           copy first password to clipboard
+  -x, --copy           copy passwords to clipboard (one per line)
   -h, --help           show this help
   -v, --version        show version
 

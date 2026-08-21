@@ -182,7 +182,7 @@ func TestRun_CopyFlag(t *testing.T) {
 			wantStderr:      "Warning: could not copy to clipboard",
 			wantStdoutLines: 1,
 		},
-		"copy with multiple passwords copies only first": {
+		"copy with multiple passwords copies all": {
 			args:            []string{"--copy", "-c", "3", "-l", "10"},
 			mockCopy:        func(s string) error { return nil },
 			wantCode:        0,
@@ -241,11 +241,9 @@ func TestRun_CopyFlag(t *testing.T) {
 				assert.True(t, called, "clipboard should be called")
 				if tt.wantCode == 0 {
 					assert.NotEmpty(t, copiedText)
-					// Verify copied text is first line of stdout
-					lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
-					if len(lines) > 0 {
-						assert.Equal(t, lines[0], copiedText)
-					}
+					// Verify copied text is all passwords joined by newline
+					expected := strings.TrimSpace(stdout.String())
+					assert.Equal(t, expected, copiedText)
 				}
 				if tt.wantStderr != "" {
 					assert.Contains(t, stderr.String(), tt.wantStderr)
