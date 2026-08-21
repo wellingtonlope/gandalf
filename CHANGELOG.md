@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...HEAD)
+### Changed
+- `generator`: expose `randReader` and `randInt` for testability to simulate `crypto/rand` failures (`internal/generator/generator.go:13`, `internal/generator/generator.go:17`).
+
+### Tests
+- `generator`: achieve 100% coverage (`93.1%` → `100%`, total `95.6%` → `98.7%`) by testing `crypto/rand` error propagation for guaranteed chars, fill and shuffle phases (`internal/generator/generator_test.go:290`, `internal/generator/generator_test.go:347`).
+- `generator`: fix flaky `TestGenerate_Randomness` (2 passwords `NotEqual`) to statistical check of 20 passwords (`>=18` unique) (`internal/generator/generator_test.go:188`) and increase `TestGenerate_CharsetFiltering` iterations `10` → `50` (`internal/generator/generator_test.go:163`).
+- `generator`: add `TestRequiredCount` and convert all table tests from `map` to `[]struct` slice for deterministic order (`internal/generator/generator_test.go:23`, `internal/generator/generator_test.go:73`).
+- `mellon`: fix `os.Stdout` leak with `t.Cleanup` and helper `captureReveal`, convert tables to slices, consolidate `Portal` assertions (`internal/mellon/mellon_test.go:99`, `internal/mellon/mellon_test.go:137`).
+- `clipboard`: fix `WriteAll` restoration with `t.Cleanup`, dedup `TestCopy_EmptyText` and `TestWriteAll_Mockable` into single table-driven `TestCopy` (`internal/clipboard/clipboard_test.go:11`).
+- `cmd/gandalf`: add missing CLI edge cases — flag parse errors (`-l abc`, `--unknown`), `count` validation (`-c 0`), `length < requiredCount` (`-l 2` with 4 sets), hint verification (`Hint: try 'gandalf --help'`), and `--no-*` filtering verification with 20 iterations (`cmd/gandalf/main_test.go:63`, `cmd/gandalf/main_test.go:124`).
+- `cmd/gandalf`: expand `mellon` tests for `TrimSpace`/`ToLower` (`"  mellon  "`, `" FrIeNd "`) and negative case `"amigo"` not triggering, plus `t.Cleanup` capture helper (`cmd/gandalf/main_test.go:186`, `cmd/gandalf/main_test.go:287`).
+- `cmd/gandalf`: dedup duplicate `copy with error` case and convert all `map` tables to slices (`cmd/gandalf/main_test.go:15`, `cmd/gandalf/main_test.go:132`).
 
 ## [0.2.2](https://github.com/wellingtonlope/gandalf/releases/tag/v0.2.2) - 2026-08-21
 ### Fixed

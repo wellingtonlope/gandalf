@@ -4,8 +4,17 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 )
+
+// randReader is the source for crypto randomness, overrideable in tests.
+// Defaults to crypto/rand.Reader for production security.
+var randReader io.Reader = rand.Reader
+
+// randInt is an alias to crypto/rand.Int, overrideable in tests to simulate
+// failures at specific points (guaranteed chars, fill, shuffle).
+var randInt = rand.Int
 
 const (
 	// LowerLetters contains lowercase ASCII letters.
@@ -104,28 +113,28 @@ func Generate(opts Options) (string, error) {
 	// Pick one guaranteed character from each enabled set to avoid missing classes.
 	required := make([]byte, 0, 4)
 	if opts.UseLower {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(LowerLetters))))
+		n, err := randInt(randReader, big.NewInt(int64(len(LowerLetters))))
 		if err != nil {
 			return "", err
 		}
 		required = append(required, LowerLetters[n.Int64()])
 	}
 	if opts.UseUpper {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(UpperLetters))))
+		n, err := randInt(randReader, big.NewInt(int64(len(UpperLetters))))
 		if err != nil {
 			return "", err
 		}
 		required = append(required, UpperLetters[n.Int64()])
 	}
 	if opts.UseDigits {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(Digits))))
+		n, err := randInt(randReader, big.NewInt(int64(len(Digits))))
 		if err != nil {
 			return "", err
 		}
 		required = append(required, Digits[n.Int64()])
 	}
 	if opts.UseSymbols {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(Symbols))))
+		n, err := randInt(randReader, big.NewInt(int64(len(Symbols))))
 		if err != nil {
 			return "", err
 		}
@@ -139,7 +148,7 @@ func Generate(opts Options) (string, error) {
 
 	max := big.NewInt(int64(len(charset)))
 	for i := 0; i < remaining; i++ {
-		n, err := rand.Int(rand.Reader, max)
+		n, err := randInt(randReader, max)
 		if err != nil {
 			return "", err
 		}
@@ -148,7 +157,7 @@ func Generate(opts Options) (string, error) {
 
 	// Shuffle with crypto-secure Fisher-Yates to avoid positional bias.
 	for i := len(result) - 1; i > 0; i-- {
-		jBig, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		jBig, err := randInt(randReader, big.NewInt(int64(i+1)))
 		if err != nil {
 			return "", err
 		}

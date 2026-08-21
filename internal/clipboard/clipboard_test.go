@@ -10,42 +10,50 @@ import (
 
 func TestCopy(t *testing.T) {
 	original := WriteAll
-	defer func() { WriteAll = original }()
+	t.Cleanup(func() { WriteAll = original })
 
-	tests := map[string]struct {
+	tests := []struct {
+		name         string
 		text         string
 		mockWriteAll func(string) error
 		wantErr      string
 		wantCalled   bool
 	}{
-		"success with simple password": {
+		{
+			name: "success with simple password",
 			text: "s3cureP@ss!",
 			mockWriteAll: func(s string) error {
 				return nil
 			},
+			wantCalled: true,
 		},
-		"success with long password": {
+		{
+			name: "success with long password",
 			text: "aVeryLongPassword123!@#WithSymbols",
 			mockWriteAll: func(s string) error {
 				assert.Equal(t, "aVeryLongPassword123!@#WithSymbols", s)
 				return nil
 			},
+			wantCalled: true,
 		},
-		"clipboard unavailable - xclip not found": {
+		{
+			name: "clipboard unavailable - xclip not found",
 			text: "myPassword123",
 			mockWriteAll: func(s string) error {
 				return errors.New("clipboard unavailable: xclip not found")
 			},
 			wantErr: "clipboard unavailable: xclip not found",
 		},
-		"clipboard error with empty mock": {
+		{
+			name: "clipboard error with empty mock",
 			text: "test123",
 			mockWriteAll: func(s string) error {
 				return errors.New("No clipboard utility available")
 			},
 			wantErr: "No clipboard utility available",
 		},
-		"empty text should fail without calling WriteAll": {
+		{
+			name: "empty text should fail without calling WriteAll",
 			text: "",
 			mockWriteAll: func(s string) error {
 				t.Errorf("WriteAll should not be called for empty text")
@@ -53,17 +61,28 @@ func TestCopy(t *testing.T) {
 			},
 			wantErr: "cannot copy empty text to clipboard",
 		},
-		"password with spaces and symbols": {
+		{
+			name: "password with spaces and symbols",
 			text: "p@ss w0rd! $pecial",
 			mockWriteAll: func(s string) error {
 				assert.Equal(t, "p@ss w0rd! $pecial", s)
 				return nil
 			},
+			wantCalled: true,
+		},
+		{
+			name: "single word mellon",
+			text: "hello-mellon",
+			mockWriteAll: func(s string) error {
+				assert.Equal(t, "hello-mellon", s)
+				return nil
+			},
+			wantCalled: true,
 		},
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			called := false
 			origMock := tt.mockWriteAll
 			WriteAll = func(s string) error {
@@ -87,51 +106,7 @@ func TestCopy(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.True(t, called, "WriteAll should be called")
+			assert.NotNil(t, WriteAll)
 		})
 	}
-}
-
-func TestCopy_EmptyText(t *testing.T) {
-	original := WriteAll
-	defer func() { WriteAll = original }()
-
-	WriteAll = func(s string) error {
-		t.Fatal("WriteAll should not be called for empty text")
-		return nil
-	}
-
-	tests := map[string]struct {
-		text    string
-		wantErr string
-	}{
-		"empty string": {
-			text:    "",
-			wantErr: "cannot copy empty text to clipboard",
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			err := Copy(tt.text)
-			assert.EqualError(t, err, tt.wantErr)
-		})
-	}
-}
-
-func TestWriteAll_Mockable(t *testing.T) {
-	original := WriteAll
-	defer func() { WriteAll = original }()
-
-	calledWith := ""
-	WriteAll = func(s string) error {
-		calledWith = s
-		return nil
-	}
-
-	err := Copy("hello-mellon")
-	require.NoError(t, err)
-	assert.Equal(t, "hello-mellon", calledWith)
-
-	// Verify that WriteAll is indeed the mocked function
-	assert.NotNil(t, WriteAll)
 }
