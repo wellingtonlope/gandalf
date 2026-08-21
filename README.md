@@ -58,6 +58,7 @@ gandalf --help
 | `--no-lower` | exclude lowercase | `false` |
 | `--no-digits` | exclude digits | `false` |
 | `--no-symbols` | exclude symbols | `false` |
+| `-x, --copy` | copy first password to clipboard | `false` |
 | `-h, --help` | show help | |
 | `-v, --version` | show version | |
 
