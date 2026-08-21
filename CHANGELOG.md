@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...HEAD)
 ### Changed
 - `generator`: expose `randReader` and `randInt` for testability to simulate `crypto/rand` failures (`internal/generator/generator.go:13`, `internal/generator/generator.go:17`).
+- `docs`: require `CHANGELOG.md` update on every commit under `[Unreleased]` via `AGENTS.md:85` (`AGENTS.md:10`, `AGENTS.md:114`).
 
 ### Tests
 - `generator`: achieve 100% coverage (`93.1%` → `100%`, total `95.6%` → `98.7%`) by testing `crypto/rand` error propagation for guaranteed chars, fill and shuffle phases (`internal/generator/generator_test.go:290`, `internal/generator/generator_test.go:347`).

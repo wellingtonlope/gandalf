@@ -81,6 +81,7 @@ Do NOT commit if any of these fail. Fix issues first.
 7.  **Flags:** CLI uses `flag` stdlib. Keep short (`-l`, `-c`, `-h`) and long (`--length`, `--count`, `--help`) variants in sync (`cmd/gandalf/main.go:35`).
 8.  **Easter Egg:** `mellon` logic must stay case-insensitive in `main.go` but `IsMellon` checks exact lower-case. Do not break `gandalf mellon` / `gandalf friend`.
 9.  **No Comments Overkill:** Keep comments concise, English, godoc-style.
+10. **Changelog:** Every commit that changes behavior, features, fixes, or tests MUST update `CHANGELOG.md` under `[Unreleased]` following [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) (`Added`/`Changed`/`Fixed`/`Tests`). Reference `file:line` (e.g., `internal/generator/generator.go:13`). Do not leave `Unreleased` empty if the commit is user-visible.
 
 ## Testing Guidelines
 
@@ -113,10 +114,11 @@ for _, tt := range tests {
 ## Git Workflow
 
 1.  Make changes
-2.  Run `make check` (or `make fmt && make lint && make test`)
-3.  Fix failures
-4.  Commit (commit message in English)
-5.  Push
+2.  Update `CHANGELOG.md` under `[Unreleased]` if the change is user-visible (features, fixes, tests, behavior)
+3.  Run `make check` (or `make fmt && make lint && make test`)
+4.  Fix failures
+5.  Commit (commit message in English)
+6.  Push
 
 ## Common Tasks
 
