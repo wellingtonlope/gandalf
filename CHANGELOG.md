@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...HEAD)
+## [Unreleased](https://github.com/wellingtonlope/gandalf/compare/v0.3.0...HEAD)
+
+## [0.3.0](https://github.com/wellingtonlope/gandalf/compare/v0.2.2...v0.3.0) - 2026-08-21
 ### Added
 - `lore`: new package `internal/lore/lore.go:1` with Middle-earth themed strength ranks `Hobbit (0-27)` < `Orc (28-35)` < `Ranger (36-59)` < `Elf (60-79)` < `Dwarf (80-99)` < `Wizard (100-127)` < `Sauron (128+)`, entropy `len*log2(charset)`, thematic penalties (common passwords, Middle-earth words, sequential, repeating) and crack time at 10B guesses/sec (`internal/lore/lore.go:120`, `internal/lore/lore.go:220`).
 - `check`: new subcommand `gandalf check <password>` and `echo <password> | gandalf check` with stdin support, `gandalf check --help` and Middle-earth themed output (emoji, quote, advice) (`cmd/gandalf/main.go:40`, `cmd/gandalf/main.go:122`, `cmd/gandalf/main.go:239`).
