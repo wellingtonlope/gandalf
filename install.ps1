@@ -44,6 +44,7 @@ $Tag = Resolve-Version -V $Version
 $Arch = Detect-Arch
 $Asset = "$Binary-windows-$Arch.zip"
 $Url = "https://github.com/$Repo/releases/download/$Tag/$Asset"
+$ChecksumsUrl = "https://github.com/$Repo/releases/download/$Tag/checksums.txt"
 
 Write-Host "Installing $Binary $Tag for windows-$Arch..."
 Write-Host "  URL: $Url"
@@ -54,6 +55,27 @@ try {
     $zipPath = Join-Path $tmp.FullName $Asset
     Write-Host "Downloading..."
     Invoke-WebRequest -Uri $Url -OutFile $zipPath
+
+    $checksumsPath = Join-Path $tmp.FullName "checksums.txt"
+    Write-Host "Downloading checksums..."
+    Invoke-WebRequest -Uri $ChecksumsUrl -OutFile $checksumsPath
+
+    $matchingEntries = @(Get-Content -LiteralPath $checksumsPath | ForEach-Object {
+        $parts = $_.Trim() -split '\s+'
+        if ($parts.Count -ge 2 -and $parts[-1] -eq $Asset) {
+            [PSCustomObject]@{ Hash = $parts[0] }
+        }
+    })
+    if ($matchingEntries.Count -ne 1 -or $matchingEntries[0].Hash -notmatch '^[A-Fa-f0-9]{64}$') {
+        throw "Could not find a unique SHA-256 checksum for $Asset in checksums.txt"
+    }
+
+    $expectedHash = $matchingEntries[0].Hash
+    $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+    if ($actualHash -ine $expectedHash) {
+        throw "SHA-256 mismatch for $Asset. Expected $expectedHash, got $actualHash"
+    }
+    Write-Host "SHA-256 verified for $Asset"
 
     Write-Host "Extracting..."
     Expand-Archive -Path $zipPath -DestinationPath $tmp.FullName -Force

@@ -61,11 +61,12 @@ resolve_version() {
 }
 
 main() {
-  local platform tag asset url tmpdir
+  local platform tag asset url checksums_url tmpdir expected actual
   platform=$(detect_os_arch)
   tag=$(resolve_version)
   asset="${BINARY}-${platform}.tar.gz"
   url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
+  checksums_url="https://github.com/${REPO}/releases/download/${tag}/checksums.txt"
 
   echo "Installing ${BINARY} ${tag} for ${platform}..."
   echo "  URL: ${url}"
@@ -79,6 +80,32 @@ main() {
     echo "Check https://github.com/${REPO}/releases" >&2
     exit 1
   fi
+
+  if ! curl -fsSL "$checksums_url" -o "$tmpdir/checksums.txt"; then
+    echo "Failed to download checksums: $checksums_url" >&2
+    exit 1
+  fi
+
+  expected=$(awk -v asset="$asset" '$2 == asset { print $1 }' "$tmpdir/checksums.txt")
+  if [[ ! "$expected" =~ ^[[:xdigit:]]{64}$ ]]; then
+    echo "Could not find a unique SHA-256 checksum for $asset in checksums.txt" >&2
+    exit 1
+  fi
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$tmpdir/$asset" | awk '{ print $1 }')
+  elif command -v shasum >/dev/null 2>&1; then
+    actual=$(shasum -a 256 "$tmpdir/$asset" | awk '{ print $1 }')
+  else
+    echo "Neither sha256sum nor shasum is available to verify the download" >&2
+    exit 1
+  fi
+
+  if [[ "$(printf '%s' "$actual" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')" ]]; then
+    echo "SHA-256 mismatch for $asset" >&2
+    exit 1
+  fi
+  echo "SHA-256 verified for $asset"
 
   tar -xzf "$tmpdir/$asset" -C "$tmpdir"
   local bin_path="$tmpdir/${BINARY}-${platform}"
